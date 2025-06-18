@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Employee Work Tracking System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">
+        <i class="fas fa-cog me-2"></i>Admin Panel
+    </h1>
+    <span class="badge bg-warning">Admin Access</span>
+</div>
+
+<!-- Admin Quick Stats -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                <h3 class="mb-1">{{ pending_entries|length }}</h3>
+                <p class="text-muted mb-0">Pending Approvals</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-play-circle fa-2x text-success mb-2"></i>
+                <h3 class="mb-1">{{ active_sessions|length }}</h3>
+                <p class="text-muted mb-0">Active Sessions</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-user-plus fa-2x text-info mb-2"></i>
+                <h3 class="mb-1">{{ recent_employees|length }}</h3>
+                <p class="text-muted mb-0">Recent Registrations</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h3 class="mb-1">{{ recent_employees|selectattr('is_active')|list|length }}</h3>
+                <p class="text-muted mb-0">Active Employees</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Pending Approvals -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Pending Time Entry Approvals
+                </h5>
+                <span class="badge bg-warning">{{ pending_entries|length }} pending</span>
+            </div>
+            <div class="card-body">
+                {% if pending_entries %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Date</th>
+                                    <th>Hours</th>
+                                    <th>Project</th>
+                                    <th>Submitted</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in pending_entries %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle me-2">
+                                                {{ entry.employee.first_name[0] + entry.employee.last_name[0] }}
+                                            </div>
+                                            <div>
+                                                <strong>{{ entry.employee.full_name }}</strong><br>
+                                                <small class="text-muted">{{ entry.employee.department }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ entry.date.strftime('%m/%d/%Y') }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ "%.1f"|format(entry.hours_worked) }}h</span>
+                                    </td>
+                                    <td>{{ entry.project or '-' }}</td>
+                                    <td>{{ entry.created_at.strftime('%m/%d %H:%M') }}</td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('approve_entry', entry_id=entry.id) }}" 
+                                               class="btn btn-sm btn-success"
+                                               onclick="return confirm('Approve this time entry?')">
+                                                <i class="fas fa-check"></i>
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="showEntryDetails({{ entry.id }})">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <p class="text-muted">All time entries are up to date!</p>
+                        <p class="text-muted">No pending approvals at this time.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Active Sessions -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-play-circle me-2"></i>Active Work Sessions
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if active_sessions %}
+                    <div class="list-group list-group-flush">
+                        {% for session in active_sessions %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle me-2">
+                                    {{ session.employee.first_name[0] + session.employee.last_name[0] }}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <strong>{{ session.employee.full_name }}</strong><br>
+                                    <small class="text-muted">
+                                        Started: {{ session.start_time.strftime('%H:%M') }}<br>
+                                        Duration: {{ "%.1f"|format(session.get_duration_hours()) }}h
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success">Active</span>
+                                </div>
+                            </div>
+                            {% if session.project %}
+                                <small class="text-primary">{{ session.project }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-pause-circle fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No active work sessions</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Employee Registrations -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-user-plus me-2"></i>Recent Employee Registrations
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if recent_employees %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Registered</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in recent_employees %}
+                        <tr {% if not employee.is_active %}class="table-secondary"{% endif %}>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-circle me-2">
+                                        {{ employee.first_name[0] + employee.last_name[0] }}
+                                    </div>
+                                    <div>
+                                        <strong>{{ employee.full_name }}</strong>
+                                        {% if employee.is_admin %}
+                                            <span class="badge bg-warning ms-1">Admin</span>
+                                        {% endif %}
+                                        <br>
+                                        <small class="text-muted">{{ employee.email }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ employee.department }}</span>
+                            </td>
+                            <td>{{ employee.position }}</td>
+                            <td>{{ employee.created_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                            <td>
+                                {% if employee.is_active %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>Active
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times me-1"></i>Inactive
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('toggle_employee_status', employee_id=employee.id) }}" 
+                                   class="btn btn-sm {% if employee.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                                   onclick="return confirm('Are you sure you want to {{ 'deactivate' if employee.is_active else 'activate' }} this employee?')">
+                                    {% if employee.is_active %}
+                                        <i class="fas fa-pause me-1"></i>Deactivate
+                                    {% else %}
+                                        <i class="fas fa-play me-1"></i>Activate
+                                    {% endif %}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No recent employee registrations</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Entry Details Modal -->
+<div class="modal fade" id="entryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-clock me-2"></i>Time Entry Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="entryModalBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showEntryDetails(entryId) {
+    // Find entry data from the table
+    const entries = [
+        {% for entry in pending_entries %}
+        {
+            id: {{ entry.id }},
+            employee_name: "{{ entry.employee.full_name }}",
+            employee_department: "{{ entry.employee.department }}",
+            employee_id: "{{ entry.employee.employee_id }}",
+            date: "{{ entry.date.strftime('%B %d, %Y') }}",
+            start_time: "{{ entry.start_time.strftime('%H:%M') if entry.start_time else 'N/A' }}",
+            end_time: "{{ entry.end_time.strftime('%H:%M') if entry.end_time else 'N/A' }}",
+            hours_worked: {{ entry.hours_worked }},
+            break_hours: {{ entry.break_hours or 0 }},
+            project: "{{ entry.project or '' }}",
+            description: "{{ entry.description or '' }}",
+            created_at: "{{ entry.created_at.strftime('%B %d, %Y at %H:%M') }}"
+        },
+        {% endfor %}
+    ];
+    
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    
+    const modalBody = document.getElementById('entryModalBody');
+    modalBody.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6 class="text-primary">Employee Information</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Name:</strong></td><td>${entry.employee_name}</td></tr>
+                    <tr><td><strong>Employee ID:</strong></td><td>${entry.employee_id}</td></tr>
+                    <tr><td><strong>Department:</strong></td><td>${entry.employee_department}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-primary">Time Information</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Date:</strong></td><td>${entry.date}</td></tr>
+                    <tr><td><strong>Start Time:</strong></td><td>${entry.start_time}</td></tr>
+                    <tr><td><strong>End Time:</strong></td><td>${entry.end_time}</td></tr>
+                    <tr><td><strong>Break Hours:</strong></td><td>${entry.break_hours}h</td></tr>
+                    <tr><td><strong>Total Hours:</strong></td><td><strong>${entry.hours_worked}h</strong></td></tr>
+                </table>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6 class="text-primary">Work Details</h6>
+                <p><strong>Project:</strong> ${entry.project || 'Not specified'}</p>
+                <p><strong>Description:</strong></p>
+                <div class="bg-light p-3 rounded">
+                    ${entry.description || 'No description provided'}
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <p class="text-muted mb-0"><strong>Submitted:</strong> ${entry.created_at}</p>
+            </div>
+        </div>
+        <div class="text-end mt-3">
+            <a href="/approve_entry/${entry.id}" class="btn btn-success" 
+               onclick="return confirm('Approve this time entry?')">
+                <i class="fas fa-check me-2"></i>Approve Entry
+            </a>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('entryModal'));
+    modal.show();
+}
+
+// Auto refresh active sessions every 2 minutes
+setInterval(function() {
+    location.reload();
+}, 120000);
+</script>
+{% endblock %}
