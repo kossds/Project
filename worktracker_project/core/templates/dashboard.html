@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Employee Work Tracking System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">
+        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+    </h1>
+    <div class="text-muted">
+        Welcome back, {{ current_user.full_name }}
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                <h3 class="mb-1">{{ "%.1f"|format(today_hours) }}</h3>
+                <p class="text-muted mb-0">Hours Today</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-week fa-2x text-success mb-2"></i>
+                <h3 class="mb-1">{{ "%.1f"|format(week_hours) }}</h3>
+                <p class="text-muted mb-0">Hours This Week</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-alt fa-2x text-info mb-2"></i>
+                <h3 class="mb-1">{{ "%.1f"|format(month_hours) }}</h3>
+                <p class="text-muted mb-0">Hours This Month</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                {% if active_session %}
+                    <i class="fas fa-play-circle fa-2x text-warning mb-2"></i>
+                    <h3 class="mb-1" id="session-timer">{{ "%.1f"|format(active_session.get_duration_hours()) }}</h3>
+                    <p class="text-muted mb-0">Active Session</p>
+                {% else %}
+                    <i class="fas fa-pause-circle fa-2x text-secondary mb-2"></i>
+                    <h3 class="mb-1">--</h3>
+                    <p class="text-muted mb-0">No Active Session</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Stats (if admin) -->
+{% if current_user.is_admin %}
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h3 class="mb-1">{{ total_employees }}</h3>
+                <p class="text-muted mb-0">Active Employees</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-stopwatch fa-2x text-warning mb-2"></i>
+                <h3 class="mb-1">{{ total_active_sessions }}</h3>
+                <p class="text-muted mb-0">Active Sessions</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- Quick Actions -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if active_session %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-stopwatch me-2"></i>
+                        <strong>Active Session Running</strong><br>
+                        Started: {{ active_session.start_time.strftime('%H:%M') }}<br>
+                        Duration: <span id="session-duration">{{ "%.1f"|format(active_session.get_duration_hours()) }}</span>h
+                    </div>
+                    <a href="{{ url_for('time_tracking') }}" class="btn btn-warning w-100 mb-2">
+                        <i class="fas fa-stop me-2"></i>Stop Current Session
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('time_tracking') }}" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-play me-2"></i>Start New Session
+                    </a>
+                {% endif %}
+                
+                <a href="{{ url_for('time_tracking') }}" class="btn btn-primary w-100 mb-2">
+                    <i class="fas fa-clock me-2"></i>View Time Tracking
+                </a>
+                
+                <a href="{{ url_for('reports') }}" class="btn btn-info w-100 mb-2">
+                    <i class="fas fa-chart-bar me-2"></i>View Reports
+                </a>
+                
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin') }}" class="btn btn-secondary w-100">
+                        <i class="fas fa-cog me-2"></i>Admin Panel
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Time Entries -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Time Entries
+                </h5>
+                <a href="{{ url_for('time_tracking') }}" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_entries %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Hours</th>
+                                    <th>Project</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in recent_entries %}
+                                <tr>
+                                    <td>{{ entry.date.strftime('%m/%d/%Y') }}</td>
+                                    <td>
+                                        {% if entry.start_time and entry.end_time %}
+                                            {{ entry.start_time.strftime('%H:%M') }} - {{ entry.end_time.strftime('%H:%M') }}
+                                        {% else %}
+                                            Manual Entry
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ "%.1f"|format(entry.hours_worked) }}h</td>
+                                    <td>{{ entry.project or '-' }}</td>
+                                    <td>
+                                        {% if entry.is_approved %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No time entries found. Start tracking your work!</p>
+                        <a href="{{ url_for('time_tracking') }}" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i>Start Time Tracking
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if active_session %}
+<script>
+// Update session timer every minute
+setInterval(function() {
+    const startTime = new Date('{{ active_session.start_time.isoformat() }}Z');
+    const now = new Date();
+    const duration = (now - startTime) / (1000 * 60 * 60); // hours
+    
+    document.getElementById('session-timer').textContent = duration.toFixed(1);
+    document.getElementById('session-duration').textContent = duration.toFixed(1);
+}, 60000);
+</script>
+{% endif %}
+{% endblock %}
